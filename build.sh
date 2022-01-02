@@ -1,1 +1,1 @@
-g++ -o build/main main.cpp -std=c++20
+g++ $(pkg-config --libs --cflags fmt) -std=c++20 main.cpp -o build/main
