@@ -11,6 +11,7 @@
 
 using FileId = std::size_t;
 struct Location {
+    Location() = default;
     Location(FileId file)
             : file(file) {}
 
@@ -73,11 +74,33 @@ enum class TokenTag {
     Punctuator,
 };
 
+enum class PunctuatorType {
+    Plus,   // +
+    Minus,  // -
+};
+
 struct Token {
     TokenTag tag;
     Location loc;
 
     uintmax_t value;
+    PunctuatorType punctuator;
+
+    static Token IntegerConstant(Location loc, uintmax_t value) {
+        Token result;
+        result.tag = TokenTag::IntegerConstant;
+        result.loc = loc;
+        result.value = value;
+        return result;
+    }
+
+    static Token Punctuator(Location loc, PunctuatorType punctuator) {
+        Token result;
+        result.tag = TokenTag::Punctuator;
+        result.loc = loc;
+        result.punctuator = punctuator;
+        return result;
+    }
 };
 
 class TokenStream {
@@ -102,11 +125,17 @@ public:
                 while (isdecimaldigit(inner.peek())) {
                     value += *inner.get();
                 }
-                return Token{
-                    TokenTag::IntegerConstant,
-                    inner.loc(),
-                    static_cast<uintmax_t>(std::atoll(value.c_str())),
-                };
+                return Token::IntegerConstant(inner.loc(), static_cast<uintmax_t>(std::atoll(value.c_str())));
+            }
+
+            inner.new_loc();
+            switch (*inner.peek()) {
+            case '+':
+                inner.get();
+                return Token::Punctuator(inner.loc(), PunctuatorType::Plus);
+            case '-':
+                inner.get();
+                return Token::Punctuator(inner.loc(), PunctuatorType::Minus);
             }
 
             std::terminate();  // invalid character
@@ -122,11 +151,24 @@ private:
     CharStream inner;
 };
 
+#define ASSERT(x) [&] { if (!(x)) fmt::print("failed assert {}\n", #x); }()
+
 int main() {
-    CharStream cs{0, "42 43 44"};
+    CharStream cs{0, "42 + 43 - 44"};
     TokenStream ts{cs};
 
-    for (size_t i = 0; i < 3; i++) {
-        fmt::print("{}\n", ts.tok().value);
-    }
+    Token t;
+
+    t = ts.tok();
+    ASSERT(t.tag == TokenTag::IntegerConstant && t.value == 42);
+    t = ts.tok();
+    ASSERT(t.tag == TokenTag::Punctuator && t.punctuator == PunctuatorType::Plus);
+    t = ts.tok();
+    ASSERT(t.tag == TokenTag::IntegerConstant && t.value == 43);
+    t = ts.tok();
+    ASSERT(t.tag == TokenTag::Punctuator && t.punctuator == PunctuatorType::Minus);
+    t = ts.tok();
+    ASSERT(t.tag == TokenTag::IntegerConstant && t.value == 44);
+
+    return 1;
 }
