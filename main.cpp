@@ -151,24 +151,42 @@ private:
     CharStream inner;
 };
 
-#define ASSERT(x) [&] { if (!(x)) fmt::print("failed assert {}\n", #x); }()
+#define ASSERT(x) [&] { if (!(x)) { fmt::print("failed assert {}\n", #x); std::terminate(); } }()
 
-int main() {
-    CharStream cs{0, "42 + 43 - 44"};
+int main(int argc, char* argv[]) {
+    ASSERT(argc == 2);
+
+    CharStream cs{0, argv[1]};
     TokenStream ts{cs};
 
-    Token t;
+    fmt::print("    .text\n");
+    fmt::print("    .globl _main\n");
+    fmt::print("    .align 4\n");
+    fmt::print("_main:\n");
 
-    t = ts.tok();
-    ASSERT(t.tag == TokenTag::IntegerConstant && t.value == 42);
-    t = ts.tok();
-    ASSERT(t.tag == TokenTag::Punctuator && t.punctuator == PunctuatorType::Plus);
-    t = ts.tok();
-    ASSERT(t.tag == TokenTag::IntegerConstant && t.value == 43);
-    t = ts.tok();
-    ASSERT(t.tag == TokenTag::Punctuator && t.punctuator == PunctuatorType::Minus);
-    t = ts.tok();
-    ASSERT(t.tag == TokenTag::IntegerConstant && t.value == 44);
+    Token t = ts.tok();
+    ASSERT(t.tag == TokenTag::IntegerConstant);
+    fmt::print("    movz x0, {}\n", t.value);
 
-    return 1;
+    while ((t = ts.tok()).tag != TokenTag::EndOfFile) {
+        ASSERT(t.tag == TokenTag::Punctuator);
+        switch (t.punctuator) {
+        case PunctuatorType::Plus:
+            t = ts.tok();
+            ASSERT(t.tag == TokenTag::IntegerConstant);
+            fmt::print("    movz x1, {}\n", t.value);
+            fmt::print("    add x0, x0, x1\n");
+            break;
+        case PunctuatorType::Minus:
+            t = ts.tok();
+            ASSERT(t.tag == TokenTag::IntegerConstant);
+            fmt::print("    movz x1, {}\n", t.value);
+            fmt::print("    sub x0, x0, x1\n");
+            break;
+        }
+    }
+
+    fmt::print("    ret\n");
+
+    return 0;
 }
