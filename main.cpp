@@ -118,18 +118,15 @@ public:
                 break;
             }
 
-            if (isdecimaldigit(inner.peek())) {
-                inner.new_loc();
-
-                std::string value;
-                while (isdecimaldigit(inner.peek())) {
-                    value += *inner.get();
-                }
-                return Token::IntegerConstant(inner.loc(), static_cast<uintmax_t>(std::atoll(value.c_str())));
-            }
-
             inner.new_loc();
             switch (*inner.peek()) {
+            case '0' ... '9': {
+                std::string value;
+                do {
+                    value += *inner.get();
+                } while (isdecimaldigit(inner.peek()));
+                return Token::IntegerConstant(inner.loc(), static_cast<uintmax_t>(std::atoll(value.c_str())));
+            }
             case '+':
                 inner.get();
                 return Token::Punctuator(inner.loc(), PunctuatorType::Plus);
