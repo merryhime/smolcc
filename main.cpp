@@ -77,6 +77,8 @@ enum class TokenTag {
 enum class PunctuatorType {
     Plus,   // +
     Minus,  // -
+    Star,   // *
+    Slash,  // /
 };
 
 struct Token {
@@ -133,6 +135,12 @@ public:
             case '-':
                 inner.get();
                 return Token::Punctuator(inner.loc(), PunctuatorType::Minus);
+            case '*':
+                inner.get();
+                return Token::Punctuator(inner.loc(), PunctuatorType::Star);
+            case '/':
+                inner.get();
+                return Token::Punctuator(inner.loc(), PunctuatorType::Slash);
             }
 
             std::terminate();  // invalid character
