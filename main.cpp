@@ -79,10 +79,11 @@ enum class TokenKind {
 };
 
 enum class PunctuatorKind {
-    Plus,   // +
-    Minus,  // -
-    Star,   // *
-    Slash,  // /
+    Plus,    // +
+    Minus,   // -
+    Star,    // *
+    Slash,   // /
+    Modulo,  // %
 };
 
 struct Token {
@@ -166,6 +167,9 @@ private:
             case '/':
                 inner.get();
                 return Token::Punctuator(inner.loc(), PunctuatorKind::Slash);
+            case '%':
+                inner.get();
+                return Token::Punctuator(inner.loc(), PunctuatorKind::Modulo);
             }
 
             std::terminate();  // invalid character
@@ -199,6 +203,7 @@ enum class BinOpKind {
     Subtract,
     Multiply,
     Divide,
+    Modulo,
 };
 
 struct BinOpExpr : public Expr {
@@ -228,6 +233,8 @@ public:
                 e = std::make_unique<BinOpExpr>(BinOpKind::Multiply, std::move(e), primary_expression());
             } else if (inner.consume_if(PunctuatorKind::Slash)) {
                 e = std::make_unique<BinOpExpr>(BinOpKind::Divide, std::move(e), primary_expression());
+            } else if (inner.consume_if(PunctuatorKind::Modulo)) {
+                e = std::make_unique<BinOpExpr>(BinOpKind::Modulo, std::move(e), primary_expression());
             } else {
                 return e;
             }
@@ -290,6 +297,10 @@ void emit_expr(const ExprPtr& expr) {
             return;
         case BinOpKind::Divide:
             fmt::print("udiv x0, x1, x0\n");  // unsigned divide for now
+            return;
+        case BinOpKind::Modulo:
+            fmt::print("udiv x2, x1, x0\n");  // unsigned for now
+            fmt::print("msub x0, x2, x0, x1\n");
             return;
         default:
             ASSERT(!"Unknown binop kind");
