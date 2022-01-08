@@ -4,10 +4,14 @@
 #include <cstddef>
 #include <cstdint>
 #include <exception>
+#include <memory>
 #include <optional>
 #include <string>
+#include <utility>
 
 #include <fmt/core.h>
+
+#define ASSERT(x) [&] { if (!(x)) { fmt::print("failed assert {}\n", #x); std::terminate(); } }()
 
 using FileId = std::size_t;
 struct Location {
@@ -116,6 +120,14 @@ public:
         return *(current = tok());
     }
 
+    bool consume_if(PunctuatorKind punctuator) {
+        if (peek().kind == TokenKind::Punctuator && peek().punctuator == punctuator) {
+            next();
+            return true;
+        }
+        return false;
+    }
+
     Token next() {
         if (!current)
             return tok();
@@ -165,46 +177,142 @@ private:
         };
     }
 
-private:
+    std::optional<Token> current;
+
     CharStream inner;
 };
 
-#define ASSERT(x) [&] { if (!(x)) { fmt::print("failed assert {}\n", #x); std::terminate(); } }()
+struct Expr {
+    virtual ~Expr() {}
+};
+
+using ExprPtr = std::unique_ptr<Expr>;
+
+struct IntegerConstantExpr : public Expr {
+    explicit IntegerConstantExpr(uintmax_t value)
+            : value(value) {}
+    uintmax_t value;
+};
+
+enum class BinOpKind {
+    Add,
+    Subtract,
+    Multiply,
+    Divide,
+};
+
+struct BinOpExpr : public Expr {
+    BinOpExpr(BinOpKind op, ExprPtr lhs, ExprPtr rhs)
+            : op(op), lhs(std::move(lhs)), rhs(std::move(rhs)) {}
+
+    BinOpKind op;
+    ExprPtr lhs;
+    ExprPtr rhs;
+};
+
+class Parser {
+public:
+    Parser(TokenStream inner)
+            : inner(std::move(inner)) {}
+
+    ExprPtr primary_expression() {
+        const Token tok = inner.next();
+        ASSERT(tok.kind == TokenKind::IntegerConstant);
+        return std::make_unique<IntegerConstantExpr>(tok.value);
+    }
+
+    ExprPtr multiplicative_expression() {
+        ExprPtr e = primary_expression();
+        while (true) {
+            if (inner.consume_if(PunctuatorKind::Star)) {
+                e = std::make_unique<BinOpExpr>(BinOpKind::Multiply, std::move(e), primary_expression());
+            } else if (inner.consume_if(PunctuatorKind::Slash)) {
+                e = std::make_unique<BinOpExpr>(BinOpKind::Divide, std::move(e), primary_expression());
+            } else {
+                return e;
+            }
+        }
+    }
+
+    ExprPtr additive_expression() {
+        ExprPtr e = multiplicative_expression();
+        while (true) {
+            if (inner.consume_if(PunctuatorKind::Plus)) {
+                e = std::make_unique<BinOpExpr>(BinOpKind::Add, std::move(e), multiplicative_expression());
+            } else if (inner.consume_if(PunctuatorKind::Minus)) {
+                e = std::make_unique<BinOpExpr>(BinOpKind::Subtract, std::move(e), multiplicative_expression());
+            } else {
+                return e;
+            }
+        }
+    }
+
+    ExprPtr expression() {
+        return additive_expression();
+    }
+
+private:
+    TokenStream inner;
+};
+
+template<typename T>
+T* dyn(const ExprPtr& e) {
+    return dynamic_cast<T*>(e.get());
+}
+
+void emit_expr(const ExprPtr& expr) {
+    if (auto e = dyn<IntegerConstantExpr>(expr)) {
+        fmt::print("movz x0, {}\n", e->value & 0xFFFF);
+        if ((e->value >> 16) & 0xFFFF)
+            fmt::print("movk x0, {}, lsl 16\n", (e->value >> 16) & 0xFFFF);
+        if ((e->value >> 32) & 0xFFFF)
+            fmt::print("movk x0, {}, lsl 32\n", (e->value >> 32) & 0xFFFF);
+        if ((e->value >> 48) & 0xFFFF)
+            fmt::print("movk x0, {}, lsl 48\n", (e->value >> 48) & 0xFFFF);
+        return;
+    }
+
+    if (auto e = dyn<BinOpExpr>(expr)) {
+        emit_expr(e->lhs);
+        fmt::print("str x0, [sp, -16]!\n");
+        emit_expr(e->rhs);
+        fmt::print("ldr x1, [sp], 16\n");
+
+        switch (e->op) {
+        case BinOpKind::Add:
+            fmt::print("add x0, x1, x0\n");
+            return;
+        case BinOpKind::Subtract:
+            fmt::print("sub x0, x1, x0\n");
+            return;
+        case BinOpKind::Multiply:
+            fmt::print("mul x0, x1, x0\n");
+            return;
+        case BinOpKind::Divide:
+            fmt::print("udiv x0, x1, x0\n");  // unsigned divide for now
+            return;
+        default:
+            ASSERT(!"Unknown binop kind");
+        }
+    }
+
+    ASSERT(!"Unknown expr kind");
+}
 
 int main(int argc, char* argv[]) {
     ASSERT(argc == 2);
 
-    CharStream cs{0, argv[1]};
-    TokenStream ts{cs};
+    Parser p{TokenStream{CharStream{0, argv[1]}}};
 
-    fmt::print("    .text\n");
-    fmt::print("    .globl _main\n");
-    fmt::print("    .align 4\n");
+    fmt::print(".text\n");
+    fmt::print(".globl _main\n");
+    fmt::print(".align 4\n");
     fmt::print("_main:\n");
 
-    Token t = ts.next();
-    ASSERT(t.kind == TokenKind::IntegerConstant);
-    fmt::print("    movz x0, {}\n", t.value);
+    ExprPtr e = p.expression();
+    emit_expr(std::move(e));
 
-    while ((t = ts.next()).kind != TokenKind::EndOfFile) {
-        ASSERT(t.kind == TokenKind::Punctuator);
-        switch (t.punctuator) {
-        case PunctuatorKind::Plus:
-            t = ts.next();
-            ASSERT(t.kind == TokenKind::IntegerConstant);
-            fmt::print("    movz x1, {}\n", t.value);
-            fmt::print("    add x0, x0, x1\n");
-            break;
-        case PunctuatorKind::Minus:
-            t = ts.next();
-            ASSERT(t.kind == TokenKind::IntegerConstant);
-            fmt::print("    movz x1, {}\n", t.value);
-            fmt::print("    sub x0, x0, x1\n");
-            break;
-        }
-    }
-
-    fmt::print("    ret\n");
+    fmt::print("ret\n");
 
     return 0;
 }
