@@ -68,13 +68,13 @@ bool isdecimaldigit(std::optional<char> ch) {
     return ch && (*ch >= '0' && *ch <= '9');
 }
 
-enum class TokenTag {
+enum class TokenKind {
     EndOfFile,
     IntegerConstant,
     Punctuator,
 };
 
-enum class PunctuatorType {
+enum class PunctuatorKind {
     Plus,   // +
     Minus,  // -
     Star,   // *
@@ -82,23 +82,23 @@ enum class PunctuatorType {
 };
 
 struct Token {
-    TokenTag tag;
+    TokenKind kind;
     Location loc;
 
     uintmax_t value;
-    PunctuatorType punctuator;
+    PunctuatorKind punctuator;
 
     static Token IntegerConstant(Location loc, uintmax_t value) {
         Token result;
-        result.tag = TokenTag::IntegerConstant;
+        result.kind = TokenKind::IntegerConstant;
         result.loc = loc;
         result.value = value;
         return result;
     }
 
-    static Token Punctuator(Location loc, PunctuatorType punctuator) {
+    static Token Punctuator(Location loc, PunctuatorKind punctuator) {
         Token result;
-        result.tag = TokenTag::Punctuator;
+        result.kind = TokenKind::Punctuator;
         result.loc = loc;
         result.punctuator = punctuator;
         return result;
@@ -110,6 +110,19 @@ public:
     TokenStream(CharStream inner)
             : inner(std::move(inner)) {}
 
+    Token peek() {
+        if (current)
+            return *current;
+        return *(current = tok());
+    }
+
+    Token next() {
+        if (!current)
+            return tok();
+        return *std::exchange(current, std::nullopt);
+    }
+
+private:
     Token tok() {
         while (inner.peek()) {
             while (isspace(inner.peek())) {
@@ -131,23 +144,23 @@ public:
             }
             case '+':
                 inner.get();
-                return Token::Punctuator(inner.loc(), PunctuatorType::Plus);
+                return Token::Punctuator(inner.loc(), PunctuatorKind::Plus);
             case '-':
                 inner.get();
-                return Token::Punctuator(inner.loc(), PunctuatorType::Minus);
+                return Token::Punctuator(inner.loc(), PunctuatorKind::Minus);
             case '*':
                 inner.get();
-                return Token::Punctuator(inner.loc(), PunctuatorType::Star);
+                return Token::Punctuator(inner.loc(), PunctuatorKind::Star);
             case '/':
                 inner.get();
-                return Token::Punctuator(inner.loc(), PunctuatorType::Slash);
+                return Token::Punctuator(inner.loc(), PunctuatorKind::Slash);
             }
 
             std::terminate();  // invalid character
         }
 
         return Token{
-            TokenTag::EndOfFile,
+            TokenKind::EndOfFile,
             inner.loc(),
         };
     }
@@ -169,22 +182,22 @@ int main(int argc, char* argv[]) {
     fmt::print("    .align 4\n");
     fmt::print("_main:\n");
 
-    Token t = ts.tok();
-    ASSERT(t.tag == TokenTag::IntegerConstant);
+    Token t = ts.next();
+    ASSERT(t.kind == TokenKind::IntegerConstant);
     fmt::print("    movz x0, {}\n", t.value);
 
-    while ((t = ts.tok()).tag != TokenTag::EndOfFile) {
-        ASSERT(t.tag == TokenTag::Punctuator);
+    while ((t = ts.next()).kind != TokenKind::EndOfFile) {
+        ASSERT(t.kind == TokenKind::Punctuator);
         switch (t.punctuator) {
-        case PunctuatorType::Plus:
-            t = ts.tok();
-            ASSERT(t.tag == TokenTag::IntegerConstant);
+        case PunctuatorKind::Plus:
+            t = ts.next();
+            ASSERT(t.kind == TokenKind::IntegerConstant);
             fmt::print("    movz x1, {}\n", t.value);
             fmt::print("    add x0, x0, x1\n");
             break;
-        case PunctuatorType::Minus:
-            t = ts.tok();
-            ASSERT(t.tag == TokenTag::IntegerConstant);
+        case PunctuatorKind::Minus:
+            t = ts.next();
+            ASSERT(t.kind == TokenKind::IntegerConstant);
             fmt::print("    movz x1, {}\n", t.value);
             fmt::print("    sub x0, x0, x1\n");
             break;
