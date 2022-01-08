@@ -84,6 +84,8 @@ enum class PunctuatorKind {
     Star,    // *
     Slash,   // /
     Modulo,  // %
+    LParen,  // (
+    RParen,  // )
 };
 
 struct Token {
@@ -170,6 +172,12 @@ private:
             case '%':
                 inner.get();
                 return Token::Punctuator(inner.loc(), PunctuatorKind::Modulo);
+            case '(':
+                inner.get();
+                return Token::Punctuator(inner.loc(), PunctuatorKind::LParen);
+            case ')':
+                inner.get();
+                return Token::Punctuator(inner.loc(), PunctuatorKind::RParen);
             }
 
             std::terminate();  // invalid character
@@ -221,6 +229,12 @@ public:
             : inner(std::move(inner)) {}
 
     ExprPtr primary_expression() {
+        if (inner.consume_if(PunctuatorKind::LParen)) {
+            ExprPtr result = expression();
+            ASSERT(inner.consume_if(PunctuatorKind::RParen));
+            return result;
+        }
+
         const Token tok = inner.next();
         ASSERT(tok.kind == TokenKind::IntegerConstant);
         return std::make_unique<IntegerConstantExpr>(tok.value);
