@@ -206,6 +206,19 @@ struct IntegerConstantExpr : public Expr {
     uintmax_t value;
 };
 
+enum class UnOpKind {
+    Posate,
+    Negate,
+};
+
+struct UnOpExpr : public Expr {
+    UnOpExpr(UnOpKind op, ExprPtr e)
+            : op(op), e(std::move(e)) {}
+
+    UnOpKind op;
+    ExprPtr e;
+};
+
 enum class BinOpKind {
     Add,
     Subtract,
@@ -240,15 +253,25 @@ public:
         return std::make_unique<IntegerConstantExpr>(tok.value);
     }
 
+    ExprPtr unary_expression() {
+        if (inner.consume_if(PunctuatorKind::Plus)) {
+            return std::make_unique<UnOpExpr>(UnOpKind::Posate, unary_expression());
+        }
+        if (inner.consume_if(PunctuatorKind::Minus)) {
+            return std::make_unique<UnOpExpr>(UnOpKind::Negate, unary_expression());
+        }
+        return primary_expression();
+    }
+
     ExprPtr multiplicative_expression() {
-        ExprPtr e = primary_expression();
+        ExprPtr e = unary_expression();
         while (true) {
             if (inner.consume_if(PunctuatorKind::Star)) {
-                e = std::make_unique<BinOpExpr>(BinOpKind::Multiply, std::move(e), primary_expression());
+                e = std::make_unique<BinOpExpr>(BinOpKind::Multiply, std::move(e), unary_expression());
             } else if (inner.consume_if(PunctuatorKind::Slash)) {
-                e = std::make_unique<BinOpExpr>(BinOpKind::Divide, std::move(e), primary_expression());
+                e = std::make_unique<BinOpExpr>(BinOpKind::Divide, std::move(e), unary_expression());
             } else if (inner.consume_if(PunctuatorKind::Modulo)) {
-                e = std::make_unique<BinOpExpr>(BinOpKind::Modulo, std::move(e), primary_expression());
+                e = std::make_unique<BinOpExpr>(BinOpKind::Modulo, std::move(e), unary_expression());
             } else {
                 return e;
             }
@@ -291,6 +314,21 @@ void emit_expr(const ExprPtr& expr) {
         if ((e->value >> 48) & 0xFFFF)
             fmt::print("movk x0, {}, lsl 48\n", (e->value >> 48) & 0xFFFF);
         return;
+    }
+
+    if (auto e = dyn<UnOpExpr>(expr)) {
+        emit_expr(e->e);
+
+        switch (e->op) {
+        case UnOpKind::Posate:
+            // do nothing
+            return;
+        case UnOpKind::Negate:
+            fmt::print("neg x0, x0\n");
+            return;
+        default:
+            ASSERT(!"Unknown unop kind");
+        }
     }
 
     if (auto e = dyn<BinOpExpr>(expr)) {
