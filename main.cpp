@@ -670,6 +670,39 @@ void emit_expr(const ExprPtr& expr) {
             fmt::print("udiv x2, x1, x0\n");  // unsigned for now
             fmt::print("msub x0, x2, x0, x1\n");
             return;
+        case BinOpKind::LessThan:
+            fmt::print("cmp x1, x0\n");
+            fmt::print("cset x0, lt\n");  // signed compare
+            return;
+        case BinOpKind::GreaterThan:
+            fmt::print("cmp x1, x0\n");
+            fmt::print("cset x0, gt\n");  // signed compare
+            return;
+        case BinOpKind::LessThanEqual:
+            fmt::print("cmp x1, x0\n");
+            fmt::print("cset x0, le\n");  // signed compare
+            return;
+        case BinOpKind::GreaterThanEqual:
+            fmt::print("cmp x1, x0\n");
+            fmt::print("cset x0, ge\n");  // signed compare
+            return;
+        case BinOpKind::Equal:
+            fmt::print("cmp x1, x0\n");
+            fmt::print("cset x0, eq\n");
+            return;
+        case BinOpKind::NotEqual:
+            fmt::print("cmp x1, x0\n");
+            fmt::print("cset x0, ne\n");
+            return;
+        case BinOpKind::BitAnd:
+            fmt::print("and x0, x1, x0\n");
+            return;
+        case BinOpKind::BitXor:
+            fmt::print("eor x0, x1, x0\n");
+            return;
+        case BinOpKind::BitOr:
+            fmt::print("orr x0, x1, x0\n");
+            return;
         default:
             ASSERT(!"Unknown binop kind");
         }
