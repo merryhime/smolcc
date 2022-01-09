@@ -406,6 +406,19 @@ enum class BinOpKind {
     Multiply,
     Divide,
     Modulo,
+    LShift,
+    RShift,
+    LessThan,
+    GreaterThan,
+    LessThanEqual,
+    GreaterThanEqual,
+    Equal,
+    NotEqual,
+    BitAnd,
+    BitXor,
+    BitOr,
+    LogicalAnd,
+    LogicalOr,
 };
 
 struct BinOpExpr : public Expr {
@@ -429,30 +442,43 @@ public:
             return result;
         }
 
+        // TODO other types of primary expression
+
         const Token tok = inner.next();
         ASSERT(tok.kind == TokenKind::IntegerConstant);
         return std::make_unique<IntegerConstantExpr>(tok.value);
     }
 
-    ExprPtr unary_expression() {
-        if (inner.consume_if(PunctuatorKind::Plus)) {
-            return std::make_unique<UnOpExpr>(UnOpKind::Posate, unary_expression());
-        }
-        if (inner.consume_if(PunctuatorKind::Minus)) {
-            return std::make_unique<UnOpExpr>(UnOpKind::Negate, unary_expression());
-        }
+    ExprPtr postfix_expression() {
+        // TODO
         return primary_expression();
     }
 
+    ExprPtr unary_expression() {
+        // TODO complete this
+        if (inner.consume_if(PunctuatorKind::Plus)) {
+            return std::make_unique<UnOpExpr>(UnOpKind::Posate, cast_expression());
+        }
+        if (inner.consume_if(PunctuatorKind::Minus)) {
+            return std::make_unique<UnOpExpr>(UnOpKind::Negate, cast_expression());
+        }
+        return postfix_expression();
+    }
+
+    ExprPtr cast_expression() {
+        // TODO
+        return unary_expression();
+    }
+
     ExprPtr multiplicative_expression() {
-        ExprPtr e = unary_expression();
+        ExprPtr e = cast_expression();
         while (true) {
             if (inner.consume_if(PunctuatorKind::Star)) {
-                e = std::make_unique<BinOpExpr>(BinOpKind::Multiply, std::move(e), unary_expression());
+                e = std::make_unique<BinOpExpr>(BinOpKind::Multiply, std::move(e), cast_expression());
             } else if (inner.consume_if(PunctuatorKind::Slash)) {
-                e = std::make_unique<BinOpExpr>(BinOpKind::Divide, std::move(e), unary_expression());
+                e = std::make_unique<BinOpExpr>(BinOpKind::Divide, std::move(e), cast_expression());
             } else if (inner.consume_if(PunctuatorKind::Modulo)) {
-                e = std::make_unique<BinOpExpr>(BinOpKind::Modulo, std::move(e), unary_expression());
+                e = std::make_unique<BinOpExpr>(BinOpKind::Modulo, std::move(e), cast_expression());
             } else {
                 return e;
             }
@@ -472,8 +498,117 @@ public:
         }
     }
 
+    ExprPtr shift_expression() {
+        ExprPtr e = additive_expression();
+        while (true) {
+            if (inner.consume_if(PunctuatorKind::LLAngle)) {
+                e = std::make_unique<BinOpExpr>(BinOpKind::LShift, std::move(e), additive_expression());
+            } else if (inner.consume_if(PunctuatorKind::RRAngle)) {
+                e = std::make_unique<BinOpExpr>(BinOpKind::RShift, std::move(e), additive_expression());
+            } else {
+                return e;
+            }
+        }
+    }
+
+    ExprPtr relational_expression() {
+        ExprPtr e = shift_expression();
+        while (true) {
+            if (inner.consume_if(PunctuatorKind::LAngle)) {
+                e = std::make_unique<BinOpExpr>(BinOpKind::LessThan, std::move(e), shift_expression());
+            } else if (inner.consume_if(PunctuatorKind::RAngle)) {
+                e = std::make_unique<BinOpExpr>(BinOpKind::GreaterThan, std::move(e), shift_expression());
+            } else if (inner.consume_if(PunctuatorKind::LAngleEq)) {
+                e = std::make_unique<BinOpExpr>(BinOpKind::LessThanEqual, std::move(e), shift_expression());
+            } else if (inner.consume_if(PunctuatorKind::RAngleEq)) {
+                e = std::make_unique<BinOpExpr>(BinOpKind::GreaterThanEqual, std::move(e), shift_expression());
+            } else {
+                return e;
+            }
+        }
+    }
+
+    ExprPtr equality_expression() {
+        ExprPtr e = relational_expression();
+        while (true) {
+            if (inner.consume_if(PunctuatorKind::EqEq)) {
+                e = std::make_unique<BinOpExpr>(BinOpKind::Equal, std::move(e), relational_expression());
+            } else if (inner.consume_if(PunctuatorKind::NotEq)) {
+                e = std::make_unique<BinOpExpr>(BinOpKind::NotEqual, std::move(e), relational_expression());
+            } else {
+                return e;
+            }
+        }
+    }
+
+    ExprPtr and_expression() {
+        ExprPtr e = equality_expression();
+        while (true) {
+            if (inner.consume_if(PunctuatorKind::And)) {
+                e = std::make_unique<BinOpExpr>(BinOpKind::BitAnd, std::move(e), equality_expression());
+            } else {
+                return e;
+            }
+        }
+    }
+
+    ExprPtr exclusive_or_expression() {
+        ExprPtr e = and_expression();
+        while (true) {
+            if (inner.consume_if(PunctuatorKind::Caret)) {
+                e = std::make_unique<BinOpExpr>(BinOpKind::BitXor, std::move(e), and_expression());
+            } else {
+                return e;
+            }
+        }
+    }
+
+    ExprPtr inclusive_or_expression() {
+        ExprPtr e = exclusive_or_expression();
+        while (true) {
+            if (inner.consume_if(PunctuatorKind::Or)) {
+                e = std::make_unique<BinOpExpr>(BinOpKind::BitOr, std::move(e), exclusive_or_expression());
+            } else {
+                return e;
+            }
+        }
+    }
+
+    ExprPtr logical_and_expression() {
+        ExprPtr e = inclusive_or_expression();
+        while (true) {
+            if (inner.consume_if(PunctuatorKind::AndAnd)) {
+                e = std::make_unique<BinOpExpr>(BinOpKind::LogicalAnd, std::move(e), inclusive_or_expression());
+            } else {
+                return e;
+            }
+        }
+    }
+
+    ExprPtr logical_or_expression() {
+        ExprPtr e = logical_and_expression();
+        while (true) {
+            if (inner.consume_if(PunctuatorKind::OrOr)) {
+                e = std::make_unique<BinOpExpr>(BinOpKind::LogicalOr, std::move(e), logical_and_expression());
+            } else {
+                return e;
+            }
+        }
+    }
+
+    ExprPtr conditional_expression() {
+        // TODO
+        return logical_or_expression();
+    }
+
+    ExprPtr assignment_expression() {
+        // TODO
+        return conditional_expression();
+    }
+
     ExprPtr expression() {
-        return additive_expression();
+        // TODO comma operator
+        return assignment_expression();
     }
 
 private:
