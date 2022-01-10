@@ -26,6 +26,8 @@ Token TokenStream::tok() {
         }
 
         inner.new_loc();
+        last_loc = inner.loc();
+
         switch (*inner.peek()) {
         case '0' ... '9': {
             std::string value;

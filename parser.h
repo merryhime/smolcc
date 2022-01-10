@@ -9,14 +9,18 @@
 #include "lexer.h"
 
 struct Expr {
+    explicit Expr(Location loc)
+            : loc(loc) {}
     virtual ~Expr() {}
+
+    Location loc;
 };
 
 using ExprPtr = std::unique_ptr<Expr>;
 
 struct IntegerConstantExpr : public Expr {
-    explicit IntegerConstantExpr(uintmax_t value)
-            : value(value) {}
+    IntegerConstantExpr(Location loc, uintmax_t value)
+            : value(value), Expr(loc) {}
     uintmax_t value;
 };
 
@@ -26,8 +30,8 @@ enum class UnOpKind {
 };
 
 struct UnOpExpr : public Expr {
-    UnOpExpr(UnOpKind op, ExprPtr e)
-            : op(op), e(std::move(e)) {}
+    UnOpExpr(Location loc, UnOpKind op, ExprPtr e)
+            : op(op), e(std::move(e)), Expr(loc) {}
 
     UnOpKind op;
     ExprPtr e;
@@ -55,8 +59,8 @@ enum class BinOpKind {
 };
 
 struct BinOpExpr : public Expr {
-    BinOpExpr(BinOpKind op, ExprPtr lhs, ExprPtr rhs)
-            : op(op), lhs(std::move(lhs)), rhs(std::move(rhs)) {}
+    BinOpExpr(Location loc, BinOpKind op, ExprPtr lhs, ExprPtr rhs)
+            : op(op), lhs(std::move(lhs)), rhs(std::move(rhs)), Expr(loc) {}
 
     BinOpKind op;
     ExprPtr lhs;

@@ -177,10 +177,15 @@ public:
         return *std::exchange(current, std::nullopt);
     }
 
+    Location loc() const {
+        return last_loc;
+    }
+
 private:
     Token tok();
 
     std::optional<Token> current;
+    Location last_loc;
 
     CharStream inner;
 };

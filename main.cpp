@@ -20,8 +20,13 @@ T* dyn(const ExprPtr& e) {
     return dynamic_cast<T*>(e.get());
 }
 
+void emit_loc(const ExprPtr& expr) {
+    fmt::print(".loc {} {} {}\n", expr->loc.file, expr->loc.line, expr->loc.col);
+}
+
 void emit_expr(const ExprPtr& expr) {
     if (auto e = dyn<IntegerConstantExpr>(expr)) {
+        emit_loc(expr);
         fmt::print("movz x0, {}\n", e->value & 0xFFFF);
         if ((e->value >> 16) & 0xFFFF)
             fmt::print("movk x0, {}, lsl 16\n", (e->value >> 16) & 0xFFFF);
@@ -35,6 +40,7 @@ void emit_expr(const ExprPtr& expr) {
     if (auto e = dyn<UnOpExpr>(expr)) {
         emit_expr(e->e);
 
+        emit_loc(expr);
         switch (e->op) {
         case UnOpKind::Posate:
             // do nothing
@@ -53,6 +59,7 @@ void emit_expr(const ExprPtr& expr) {
         emit_expr(e->rhs);
         fmt::print("ldr x1, [sp], 16\n");
 
+        emit_loc(expr);
         switch (e->op) {
         case BinOpKind::Add:
             fmt::print("add x0, x1, x0\n");
@@ -114,8 +121,9 @@ void emit_expr(const ExprPtr& expr) {
 int main(int argc, char* argv[]) {
     ASSERT(argc == 2);
 
-    Parser p{TokenStream{CharStream{0, argv[1]}}};
+    Parser p{TokenStream{CharStream{1, argv[1]}}};
 
+    fmt::print(".file 1 \"stdin\"\n");
     fmt::print(".text\n");
     fmt::print(".globl _main\n");
     fmt::print(".align 4\n");
