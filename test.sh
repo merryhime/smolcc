@@ -16,3 +16,5 @@ echo expect 69
 ./build.sh "{ if (1 == 0) 42; else 69; }"
 echo expect 69
 ./build.sh "{ for (0; 1; 0) { return 69; } return 42; }"
+echo expect 69
+./build.sh "{ while (1) { return 69; } }"

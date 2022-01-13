@@ -220,6 +220,18 @@ StmtPtr Parser::if_statement() {
     return std::make_unique<IfStmt>(loc, std::move(e), std::move(then_), nullptr);
 }
 
+StmtPtr Parser::while_statement() {
+    ASSERT(inner.consume_if_identifier("while"));
+    const Location loc = inner.loc();
+
+    ASSERT(inner.consume_if(PunctuatorKind::LParen));
+    ExprPtr cond = expression();
+    ASSERT(inner.consume_if(PunctuatorKind::RParen));
+
+    StmtPtr then = statement();
+    return std::make_unique<LoopStmt>(loc, nullptr, std::move(cond), nullptr, std::move(then));
+}
+
 StmtPtr Parser::for_statement() {
     ASSERT(inner.consume_if_identifier("for"));
     const Location loc = inner.loc();
@@ -240,7 +252,7 @@ StmtPtr Parser::for_statement() {
     ASSERT(inner.consume_if(PunctuatorKind::RParen));
 
     StmtPtr then = statement();
-    return std::make_unique<ForStmt>(loc, std::move(init), std::move(cond), std::move(incr), std::move(then));
+    return std::make_unique<LoopStmt>(loc, std::move(init), std::move(cond), std::move(incr), std::move(then));
 }
 
 StmtPtr Parser::return_statement() {
@@ -269,6 +281,9 @@ StmtPtr Parser::statement() {
     }
     if (inner.peek_identifier("if")) {
         return if_statement();
+    }
+    if (inner.peek_identifier("while")) {
+        return while_statement();
     }
     if (inner.peek_identifier("for")) {
         return for_statement();

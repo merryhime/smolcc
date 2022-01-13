@@ -151,20 +151,22 @@ void emit_stmt(const StmtPtr& stmt) {
         return;
     }
 
-    if (auto s = dyn<ForStmt>(stmt)) {
+    if (auto s = dyn<LoopStmt>(stmt)) {
         const int i = iota();
-        emit_expr(s->init);
-        fmt::print(".for{}.cond:\n", i);
+        if (s->init) {
+            emit_expr(s->init);
+        }
+        fmt::print(".loop{}.cond:\n", i);
         if (s->cond) {
             emit_expr(s->cond);
             fmt::print("cmp x0, 0\n");
-            fmt::print("b.eq .for{}.end\n", i);
+            fmt::print("b.eq .loop{}.end\n", i);
         }
         emit_stmt(s->then);
         if (s->incr)
             emit_expr(s->incr);
-        fmt::print("b .for{}.cond\n", i);
-        fmt::print(".for{}.end:\n", i);
+        fmt::print("b .loop{}.cond\n", i);
+        fmt::print(".loop{}.end:\n", i);
         return;
     }
 
