@@ -131,6 +131,14 @@ void emit_stmt(const StmtPtr& stmt) {
         return;
     }
 
+    if (auto s = dyn<ReturnStmt>(stmt)) {
+        if (s->e) {
+            emit_expr(s->e);
+        }
+        fmt::print("ret\n");
+        return;
+    }
+
     ASSERT(!"Unknown stmt kind");
 }
 

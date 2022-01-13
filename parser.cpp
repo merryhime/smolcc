@@ -190,6 +190,20 @@ StmtPtr Parser::expression_statement() {
     return std::make_unique<ExprStmt>(e->loc, std::move(e));
 }
 
+StmtPtr Parser::return_statement() {
+    ASSERT(inner.consume_if_identifier("return"));
+    const Location loc = inner.loc();
+
+    if (inner.peek(PunctuatorKind::Semi)) {
+        return std::make_unique<ReturnStmt>(loc, nullptr);
+    }
+
+    ExprPtr e = expression();
+    ASSERT(inner.consume_if(PunctuatorKind::Semi));
+
+    return std::make_unique<ReturnStmt>(loc, std::move(e));
+}
+
 StmtPtr Parser::compound_statement() {
     std::vector<StmtPtr> items;
 
@@ -206,6 +220,9 @@ StmtPtr Parser::statement() {
     // TODO
     if (inner.peek(PunctuatorKind::LBrace)) {
         return compound_statement();
+    }
+    if (inner.peek_identifier("return")) {
+        return return_statement();
     }
     return expression_statement();
 }

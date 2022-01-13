@@ -93,6 +93,13 @@ struct ExprStmt : public Stmt {
     ExprPtr e;
 };
 
+struct ReturnStmt : public Stmt {
+    ReturnStmt(Location loc, ExprPtr e)
+            : e(std::move(e)), Stmt(loc) {}
+
+    ExprPtr e;
+};
+
 class Parser {
 public:
     Parser(TokenStream inner)
@@ -117,6 +124,7 @@ public:
     ExprPtr expression();
 
     StmtPtr expression_statement();
+    StmtPtr return_statement();
     StmtPtr compound_statement();
     StmtPtr statement();
 

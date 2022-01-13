@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <optional>
 #include <string>
+#include <string_view>
 
 using FileId = std::size_t;
 struct Location {
@@ -177,8 +178,20 @@ public:
         return peek().kind == TokenKind::Punctuator && peek().punctuator == punctuator;
     }
 
+    bool peek_identifier(std::string_view identifier) {
+        return peek().kind == TokenKind::Identifier && peek().payload == identifier;
+    }
+
     bool consume_if(PunctuatorKind punctuator) {
         if (peek(punctuator)) {
+            next();
+            return true;
+        }
+        return false;
+    }
+
+    bool consume_if_identifier(std::string_view identifier) {
+        if (peek_identifier(identifier)) {
             next();
             return true;
         }
