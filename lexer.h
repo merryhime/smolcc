@@ -70,6 +70,7 @@ enum class TokenKind {
     EndOfFile,
     IntegerConstant,
     Punctuator,
+    Identifier,
 };
 
 enum class PunctuatorKind {
@@ -134,6 +135,7 @@ struct Token {
 
     uintmax_t value;
     PunctuatorKind punctuator;
+    std::string payload;
 
     static Token IntegerConstant(Location loc, uintmax_t value) {
         Token result;
@@ -148,6 +150,14 @@ struct Token {
         result.kind = TokenKind::Punctuator;
         result.loc = loc;
         result.punctuator = punctuator;
+        return result;
+    }
+
+    static Token Identifier(Location loc, std::string payload) {
+        Token result;
+        result.kind = TokenKind::Identifier;
+        result.loc = loc;
+        result.payload = payload;
         return result;
     }
 };

@@ -15,6 +15,10 @@ static bool isdecimaldigit(std::optional<char> ch) {
     return ch && (*ch >= '0' && *ch <= '9');
 }
 
+static bool isidentifiernondigit(std::optional<char> ch) {
+    return ch && (*ch == '_' || (*ch >= 'a' && *ch <= 'z') || (*ch >= 'A' && *ch <= 'Z'));
+}
+
 Token TokenStream::tok() {
     while (inner.peek()) {
         while (isspace(inner.peek())) {
@@ -35,6 +39,16 @@ Token TokenStream::tok() {
                 value += *inner.get();
             } while (isdecimaldigit(inner.peek()));
             return Token::IntegerConstant(inner.loc(), static_cast<uintmax_t>(std::atoll(value.c_str())));
+        }
+        case '_':
+        case 'a' ... 'z':
+        case 'A' ... 'Z': {
+            // TODO: Universal character names
+            std::string identifier;
+            do {
+                identifier += *inner.get();
+            } while (isdecimaldigit(inner.peek()) || isidentifiernondigit(inner.peek()));
+            return Token::Identifier(inner.loc(), identifier);
         }
         case '[':
             inner.get();
