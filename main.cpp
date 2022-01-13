@@ -127,14 +127,14 @@ void emit_stmt(const StmtPtr& stmt) {
     }
 
     if (auto s = dyn<ExprStmt>(stmt)) {
-        emit_expr(s->e);
+        if (s->e)
+            emit_expr(s->e);
         return;
     }
 
     if (auto s = dyn<ReturnStmt>(stmt)) {
-        if (s->e) {
+        if (s->e)
             emit_expr(s->e);
-        }
         fmt::print("ret\n");
         return;
     }

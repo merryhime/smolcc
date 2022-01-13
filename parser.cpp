@@ -218,6 +218,11 @@ StmtPtr Parser::compound_statement() {
 
 StmtPtr Parser::statement() {
     // TODO
+    if (inner.peek(PunctuatorKind::Semi)) {
+        // null statement
+        inner.next();
+        return std::make_unique<ExprStmt>(inner.loc(), nullptr);
+    }
     if (inner.peek(PunctuatorKind::LBrace)) {
         return compound_statement();
     }
