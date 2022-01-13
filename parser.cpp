@@ -220,6 +220,29 @@ StmtPtr Parser::if_statement() {
     return std::make_unique<IfStmt>(loc, std::move(e), std::move(then_), nullptr);
 }
 
+StmtPtr Parser::for_statement() {
+    ASSERT(inner.consume_if_identifier("for"));
+    const Location loc = inner.loc();
+    ExprPtr init, cond, incr;
+
+    ASSERT(inner.consume_if(PunctuatorKind::LParen));
+    if (!inner.consume_if(PunctuatorKind::Semi)) {
+        init = expression();
+        ASSERT(inner.consume_if(PunctuatorKind::Semi));
+    }
+    if (!inner.consume_if(PunctuatorKind::Semi)) {
+        cond = expression();
+        ASSERT(inner.consume_if(PunctuatorKind::Semi));
+    }
+    if (!inner.consume_if(PunctuatorKind::RParen)) {
+        incr = expression();
+    }
+    ASSERT(inner.consume_if(PunctuatorKind::RParen));
+
+    StmtPtr then = statement();
+    return std::make_unique<ForStmt>(loc, std::move(init), std::move(cond), std::move(incr), std::move(then));
+}
+
 StmtPtr Parser::return_statement() {
     ASSERT(inner.consume_if_identifier("return"));
     const Location loc = inner.loc();
@@ -246,6 +269,9 @@ StmtPtr Parser::statement() {
     }
     if (inner.peek_identifier("if")) {
         return if_statement();
+    }
+    if (inner.peek_identifier("for")) {
+        return for_statement();
     }
     if (inner.peek_identifier("return")) {
         return return_statement();

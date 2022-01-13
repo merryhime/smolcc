@@ -102,6 +102,14 @@ struct IfStmt : public Stmt {
     StmtPtr else_;
 };
 
+struct ForStmt : public Stmt {
+    ForStmt(Location loc, ExprPtr init, ExprPtr cond, ExprPtr incr, StmtPtr then)
+            : init(std::move(init)), cond(std::move(cond)), incr(std::move(incr)), then(std::move(then)), Stmt(loc) {}
+
+    ExprPtr init, cond, incr;
+    StmtPtr then;
+};
+
 struct ReturnStmt : public Stmt {
     ReturnStmt(Location loc, ExprPtr e)
             : e(std::move(e)), Stmt(loc) {}
@@ -135,6 +143,7 @@ public:
     StmtPtr compound_statement();
     StmtPtr expression_statement();
     StmtPtr if_statement();
+    StmtPtr for_statement();
     StmtPtr return_statement();
     StmtPtr statement();
 

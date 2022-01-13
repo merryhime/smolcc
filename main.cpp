@@ -138,7 +138,7 @@ void emit_stmt(const StmtPtr& stmt) {
     }
 
     if (auto s = dyn<IfStmt>(stmt)) {
-        int i = iota();
+        const int i = iota();
         emit_expr(s->cond);
         fmt::print("cmp x0, 0\n");
         fmt::print("b.eq .if{}.else\n", i);
@@ -148,6 +148,23 @@ void emit_stmt(const StmtPtr& stmt) {
         if (s->else_)
             emit_stmt(s->else_);
         fmt::print(".if{}.end:\n", i);
+        return;
+    }
+
+    if (auto s = dyn<ForStmt>(stmt)) {
+        const int i = iota();
+        emit_expr(s->init);
+        fmt::print(".for{}.cond:\n", i);
+        if (s->cond) {
+            emit_expr(s->cond);
+            fmt::print("cmp x0, 0\n");
+            fmt::print("b.eq .for{}.end\n", i);
+        }
+        emit_stmt(s->then);
+        if (s->incr)
+            emit_expr(s->incr);
+        fmt::print("b .for{}.cond\n", i);
+        fmt::print(".for{}.end:\n", i);
         return;
     }
 

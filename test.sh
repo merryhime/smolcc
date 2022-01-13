@@ -1,12 +1,18 @@
 echo expect 111
-./build.sh "69+42"
+./build.sh "return 69+42;"
 echo expect 111
-./build.sh "1000-889"
+./build.sh "return 1000-889;"
 echo expect 111
-./build.sh "13%10*23+(10- -4)/2*(34-28)"
+./build.sh "return 13%10*23+(10- -4)/2*(34-28);"
 echo expect 1
-./build.sh "100 < 999"
+./build.sh "return 100 < 999;"
 echo expect 1
-./build.sh "10000 > -32"
+./build.sh "return 10000 > -32;"
 echo expect 0
-./build.sh "10000 == -32"
+./build.sh "return 10000 == -32;"
+echo expect 42
+./build.sh "{ if (1) { 42; } else { 69; } }"
+echo expect 69
+./build.sh "{ if (1 == 0) 42; else 69; }"
+echo expect 69
+./build.sh "{ for (0; 1; 0) { return 69; } return 42; }"
