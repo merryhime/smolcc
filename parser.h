@@ -5,6 +5,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <vector>
 
 #include "lexer.h"
 
@@ -67,6 +68,31 @@ struct BinOpExpr : public Expr {
     ExprPtr rhs;
 };
 
+struct Stmt {
+    explicit Stmt(Location loc)
+            : loc(loc) {}
+    virtual ~Stmt() {}
+
+    Location loc;
+};
+
+using StmtPtr = std::unique_ptr<Stmt>;
+
+struct CompoundStmt : public Stmt {
+    // TODO: block-item should be variant<Stmt, Decl>
+    CompoundStmt(Location loc, std::vector<StmtPtr> items)
+            : items(std::move(items)), Stmt(loc) {}
+
+    std::vector<StmtPtr> items;
+};
+
+struct ExprStmt : public Stmt {
+    ExprStmt(Location loc, ExprPtr e)
+            : e(std::move(e)), Stmt(loc) {}
+
+    ExprPtr e;
+};
+
 class Parser {
 public:
     Parser(TokenStream inner)
@@ -89,6 +115,10 @@ public:
     ExprPtr conditional_expression();
     ExprPtr assignment_expression();
     ExprPtr expression();
+
+    StmtPtr expression_statement();
+    StmtPtr compound_statement();
+    StmtPtr statement();
 
 private:
     TokenStream inner;

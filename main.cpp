@@ -15,8 +15,8 @@
 #include "lexer.h"
 #include "parser.h"
 
-template<typename T>
-T* dyn(const ExprPtr& e) {
+template<typename T, typename U>
+T* dyn(const U& e) {
     return dynamic_cast<T*>(e.get());
 }
 
@@ -118,6 +118,22 @@ void emit_expr(const ExprPtr& expr) {
     ASSERT(!"Unknown expr kind");
 }
 
+void emit_stmt(const StmtPtr& stmt) {
+    if (auto s = dyn<CompoundStmt>(stmt)) {
+        for (auto& i : s->items) {
+            emit_stmt(i);
+        }
+        return;
+    }
+
+    if (auto s = dyn<ExprStmt>(stmt)) {
+        emit_expr(s->e);
+        return;
+    }
+
+    ASSERT(!"Unknown stmt kind");
+}
+
 int main(int argc, char* argv[]) {
     ASSERT(argc == 2);
 
@@ -129,8 +145,8 @@ int main(int argc, char* argv[]) {
     fmt::print(".align 4\n");
     fmt::print("_main:\n");
 
-    ExprPtr e = p.expression();
-    emit_expr(std::move(e));
+    StmtPtr s = p.statement();
+    emit_stmt(std::move(s));
 
     fmt::print("ret\n");
 

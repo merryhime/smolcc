@@ -182,3 +182,30 @@ ExprPtr Parser::expression() {
     // TODO comma operator
     return assignment_expression();
 }
+
+StmtPtr Parser::expression_statement() {
+    ExprPtr e = expression();
+    ASSERT(inner.consume_if(PunctuatorKind::Semi));
+
+    return std::make_unique<ExprStmt>(e->loc, std::move(e));
+}
+
+StmtPtr Parser::compound_statement() {
+    std::vector<StmtPtr> items;
+
+    ASSERT(inner.consume_if(PunctuatorKind::LBrace));
+    Location loc = inner.loc();
+
+    while (!inner.consume_if(PunctuatorKind::RBrace)) {
+        items.emplace_back(statement());
+    }
+    return std::make_unique<CompoundStmt>(loc, std::move(items));
+}
+
+StmtPtr Parser::statement() {
+    // TODO
+    if (inner.peek(PunctuatorKind::LBrace)) {
+        return compound_statement();
+    }
+    return expression_statement();
+}

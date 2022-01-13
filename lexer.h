@@ -163,8 +163,12 @@ public:
         return *(current = tok());
     }
 
+    bool peek(PunctuatorKind punctuator) {
+        return peek().kind == TokenKind::Punctuator && peek().punctuator == punctuator;
+    }
+
     bool consume_if(PunctuatorKind punctuator) {
-        if (peek().kind == TokenKind::Punctuator && peek().punctuator == punctuator) {
+        if (peek(punctuator)) {
             next();
             return true;
         }
