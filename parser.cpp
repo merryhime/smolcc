@@ -183,11 +183,41 @@ ExprPtr Parser::expression() {
     return assignment_expression();
 }
 
+StmtPtr Parser::compound_statement() {
+    std::vector<StmtPtr> items;
+
+    ASSERT(inner.consume_if(PunctuatorKind::LBrace));
+    Location loc = inner.loc();
+
+    while (!inner.consume_if(PunctuatorKind::RBrace)) {
+        items.emplace_back(statement());
+    }
+    return std::make_unique<CompoundStmt>(loc, std::move(items));
+}
+
 StmtPtr Parser::expression_statement() {
     ExprPtr e = expression();
     ASSERT(inner.consume_if(PunctuatorKind::Semi));
 
     return std::make_unique<ExprStmt>(e->loc, std::move(e));
+}
+
+StmtPtr Parser::if_statement() {
+    ASSERT(inner.consume_if_identifier("if"));
+    const Location loc = inner.loc();
+
+    ASSERT(inner.consume_if(PunctuatorKind::LParen));
+    ExprPtr e = expression();
+    ASSERT(inner.consume_if(PunctuatorKind::RParen));
+
+    StmtPtr then_ = statement();
+
+    if (inner.consume_if_identifier("else")) {
+        StmtPtr else_ = statement();
+
+        return std::make_unique<IfStmt>(loc, std::move(e), std::move(then_), std::move(else_));
+    }
+    return std::make_unique<IfStmt>(loc, std::move(e), std::move(then_), nullptr);
 }
 
 StmtPtr Parser::return_statement() {
@@ -204,18 +234,6 @@ StmtPtr Parser::return_statement() {
     return std::make_unique<ReturnStmt>(loc, std::move(e));
 }
 
-StmtPtr Parser::compound_statement() {
-    std::vector<StmtPtr> items;
-
-    ASSERT(inner.consume_if(PunctuatorKind::LBrace));
-    Location loc = inner.loc();
-
-    while (!inner.consume_if(PunctuatorKind::RBrace)) {
-        items.emplace_back(statement());
-    }
-    return std::make_unique<CompoundStmt>(loc, std::move(items));
-}
-
 StmtPtr Parser::statement() {
     // TODO
     if (inner.peek(PunctuatorKind::Semi)) {
@@ -225,6 +243,9 @@ StmtPtr Parser::statement() {
     }
     if (inner.peek(PunctuatorKind::LBrace)) {
         return compound_statement();
+    }
+    if (inner.peek_identifier("if")) {
+        return if_statement();
     }
     if (inner.peek_identifier("return")) {
         return return_statement();

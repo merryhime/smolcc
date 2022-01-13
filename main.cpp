@@ -15,6 +15,11 @@
 #include "lexer.h"
 #include "parser.h"
 
+static int iota() {
+    static int value = 1;
+    return value++;
+}
+
 template<typename T, typename U>
 T* dyn(const U& e) {
     return dynamic_cast<T*>(e.get());
@@ -129,6 +134,20 @@ void emit_stmt(const StmtPtr& stmt) {
     if (auto s = dyn<ExprStmt>(stmt)) {
         if (s->e)
             emit_expr(s->e);
+        return;
+    }
+
+    if (auto s = dyn<IfStmt>(stmt)) {
+        int i = iota();
+        emit_expr(s->cond);
+        fmt::print("cmp x0, 0\n");
+        fmt::print("b.eq .if{}.else\n", i);
+        emit_stmt(s->then_);
+        fmt::print("b .if{}.end\n", i);
+        fmt::print(".if{}.else:\n", i);
+        if (s->else_)
+            emit_stmt(s->else_);
+        fmt::print(".if{}.end:\n", i);
         return;
     }
 

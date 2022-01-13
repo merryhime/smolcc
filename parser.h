@@ -93,6 +93,15 @@ struct ExprStmt : public Stmt {
     ExprPtr e;
 };
 
+struct IfStmt : public Stmt {
+    IfStmt(Location loc, ExprPtr cond, StmtPtr then_, StmtPtr else_)
+            : cond(std::move(cond)), then_(std::move(then_)), else_(std::move(else_)), Stmt(loc) {}
+
+    ExprPtr cond;
+    StmtPtr then_;
+    StmtPtr else_;
+};
+
 struct ReturnStmt : public Stmt {
     ReturnStmt(Location loc, ExprPtr e)
             : e(std::move(e)), Stmt(loc) {}
@@ -123,9 +132,10 @@ public:
     ExprPtr assignment_expression();
     ExprPtr expression();
 
-    StmtPtr expression_statement();
-    StmtPtr return_statement();
     StmtPtr compound_statement();
+    StmtPtr expression_statement();
+    StmtPtr if_statement();
+    StmtPtr return_statement();
     StmtPtr statement();
 
 private:
