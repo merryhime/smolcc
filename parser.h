@@ -25,6 +25,12 @@ struct IntegerConstantExpr : public Expr {
     uintmax_t value;
 };
 
+struct VariableExpr : public Expr {
+    VariableExpr(Location loc, std::string ident)
+            : ident(ident), Expr(loc) {}
+    std::string ident;
+};
+
 enum class UnOpKind {
     Posate,
     Negate,
@@ -57,6 +63,7 @@ enum class BinOpKind {
     BitOr,
     LogicalAnd,
     LogicalOr,
+    Assign,
 };
 
 struct BinOpExpr : public Expr {
@@ -64,6 +71,14 @@ struct BinOpExpr : public Expr {
             : op(op), lhs(std::move(lhs)), rhs(std::move(rhs)), Expr(loc) {}
 
     BinOpKind op;
+    ExprPtr lhs;
+    ExprPtr rhs;
+};
+
+struct AssignExpr : public Expr {
+    AssignExpr(Location loc, ExprPtr lhs, ExprPtr rhs)
+            : lhs(std::move(lhs)), rhs(std::move(rhs)), Expr(loc) {}
+
     ExprPtr lhs;
     ExprPtr rhs;
 };
@@ -117,6 +132,14 @@ struct ReturnStmt : public Stmt {
     ExprPtr e;
 };
 
+// TODO: Temporary
+struct DeclStmt : public Stmt {
+    DeclStmt(Location loc, std::string ident)
+            : ident(ident), Stmt(loc) {}
+
+    std::string ident;
+};
+
 class Parser {
 public:
     Parser(TokenStream inner)
@@ -147,6 +170,8 @@ public:
     StmtPtr for_statement();
     StmtPtr return_statement();
     StmtPtr statement();
+
+    StmtPtr declaration();
 
 private:
     TokenStream inner;

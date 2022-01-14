@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <exception>
+#include <map>
 #include <memory>
 #include <optional>
 #include <string>
@@ -20,13 +21,31 @@ static int iota() {
     return value++;
 }
 
+struct Function {
+    StmtPtr body;
+    std::map<std::string, int> locals;
+    int stack_size;
+};
+
+Function f{};
+
 template<typename T, typename U>
 T* dyn(const U& e) {
     return dynamic_cast<T*>(e.get());
 }
 
-void emit_loc(const ExprPtr& expr) {
-    fmt::print(".loc {} {} {}\n", expr->loc.file, expr->loc.line, expr->loc.col);
+template<typename T>
+void emit_loc(const T& x) {
+    fmt::print(".loc {} {} {}\n", x->loc.file, x->loc.line, x->loc.col);
+}
+
+void emit_addr(const ExprPtr& expr) {
+    if (auto e = dyn<VariableExpr>(expr)) {
+        fmt::print("add x0, fp, {}\n", f.locals[e->ident]);
+        return;
+    }
+
+    ASSERT(!"!lvalue");
 }
 
 void emit_expr(const ExprPtr& expr) {
@@ -39,6 +58,11 @@ void emit_expr(const ExprPtr& expr) {
             fmt::print("movk x0, {}, lsl 32\n", (e->value >> 32) & 0xFFFF);
         if ((e->value >> 48) & 0xFFFF)
             fmt::print("movk x0, {}, lsl 48\n", (e->value >> 48) & 0xFFFF);
+        return;
+    }
+
+    if (auto e = dyn<VariableExpr>(expr)) {
+        fmt::print("ldr x0, [fp, {}]\n", f.locals[e->ident]);
         return;
     }
 
@@ -120,6 +144,15 @@ void emit_expr(const ExprPtr& expr) {
         }
     }
 
+    if (auto e = dyn<AssignExpr>(expr)) {
+        emit_addr(e->lhs);
+        fmt::print("str x0, [sp, -16]!\n");
+        emit_expr(e->rhs);
+        fmt::print("ldr x1, [sp], 16\n");
+        fmt::print("str x0, [x1]\n");
+        return;
+    }
+
     ASSERT(!"Unknown expr kind");
 }
 
@@ -173,7 +206,16 @@ void emit_stmt(const StmtPtr& stmt) {
     if (auto s = dyn<ReturnStmt>(stmt)) {
         if (s->e)
             emit_expr(s->e);
+
+        emit_loc(stmt);
         fmt::print("ret\n");
+        return;
+    }
+
+    if (auto s = dyn<DeclStmt>(stmt)) {
+        // TODO: no duplicates
+        f.locals[s->ident] = f.stack_size;
+        f.stack_size += 8;
         return;
     }
 
@@ -191,9 +233,13 @@ int main(int argc, char* argv[]) {
     fmt::print(".align 4\n");
     fmt::print("_main:\n");
 
+    fmt::print("mov fp, sp\n");
+    fmt::print("sub sp, sp, 256\n");
+
     StmtPtr s = p.statement();
     emit_stmt(std::move(s));
 
+    fmt::print("add sp, sp, 256\n");
     fmt::print("ret\n");
 
     return 0;

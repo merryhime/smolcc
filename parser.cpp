@@ -17,8 +17,17 @@ ExprPtr Parser::primary_expression() {
     // TODO other types of primary expression
 
     const Token tok = inner.next();
-    ASSERT(tok.kind == TokenKind::IntegerConstant);
-    return std::make_unique<IntegerConstantExpr>(inner.loc(), tok.value);
+
+    if (tok.kind == TokenKind::IntegerConstant) {
+        return std::make_unique<IntegerConstantExpr>(inner.loc(), tok.value);
+    }
+
+    if (tok.kind == TokenKind::Identifier) {
+        return std::make_unique<VariableExpr>(inner.loc(), tok.payload);
+    }
+
+    ASSERT(!"unrecognised primary expression");
+    return nullptr;
 }
 
 ExprPtr Parser::postfix_expression() {
@@ -174,8 +183,13 @@ ExprPtr Parser::conditional_expression() {
 }
 
 ExprPtr Parser::assignment_expression() {
-    // TODO
-    return conditional_expression();
+    ExprPtr e = conditional_expression();
+    // TODO: constrain to unary-expression
+    // TODO: complete
+    if (inner.consume_if(PunctuatorKind::Eq)) {
+        return std::make_unique<AssignExpr>(inner.loc(), std::move(e), assignment_expression());
+    }
+    return e;
 }
 
 ExprPtr Parser::expression() {
@@ -291,5 +305,20 @@ StmtPtr Parser::statement() {
     if (inner.peek_identifier("return")) {
         return return_statement();
     }
+    // TODO: Temporary
+    if (inner.peek_identifier("int")) {
+        return declaration();
+    }
     return expression_statement();
+}
+
+StmtPtr Parser::declaration() {
+    // TODO: Temporary
+    ASSERT(inner.consume_if_identifier("int"));
+    const Location loc = inner.loc();
+    ASSERT(inner.peek().kind == TokenKind::Identifier);
+    // TODO: !keyword
+    const std::string ident = inner.next().payload;
+    ASSERT(inner.consume_if(PunctuatorKind::Semi));
+    return std::make_unique<DeclStmt>(loc, ident);
 }
