@@ -39,10 +39,24 @@ void emit_loc(const T& x) {
     fmt::print(".loc {} {} {}\n", x->loc.file, x->loc.line, x->loc.col);
 }
 
+void emit_addr(const ExprPtr& expr);
+void emit_expr(const ExprPtr& expr);
+void emit_stmt(const StmtPtr& expr);
+
 void emit_addr(const ExprPtr& expr) {
     if (auto e = dyn<VariableExpr>(expr)) {
         fmt::print("add x0, fp, {}\n", f.locals[e->ident]);
         return;
+    }
+
+    if (auto e = dyn<UnOpExpr>(expr)) {
+        switch (e->op) {
+        case UnOpKind::Dereference:
+            emit_expr(e->e);
+            return;
+        default:
+            ASSERT(!"Unknown unop kind");
+        }
     }
 
     ASSERT(!"!lvalue");
@@ -67,10 +81,18 @@ void emit_expr(const ExprPtr& expr) {
     }
 
     if (auto e = dyn<UnOpExpr>(expr)) {
+        if (e->op == UnOpKind::AddressOf) {
+            emit_addr(e->e);
+            return;
+        }
+
         emit_expr(e->e);
 
         emit_loc(expr);
         switch (e->op) {
+        case UnOpKind::Dereference:
+            fmt::print("ldr x0, [x0]\n");
+            return;
         case UnOpKind::Posate:
             // do nothing
             return;

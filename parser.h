@@ -32,6 +32,8 @@ struct VariableExpr : public Expr {
 };
 
 enum class UnOpKind {
+    AddressOf,
+    Dereference,
     Posate,
     Negate,
 };
@@ -63,7 +65,6 @@ enum class BinOpKind {
     BitOr,
     LogicalAnd,
     LogicalOr,
-    Assign,
 };
 
 struct BinOpExpr : public Expr {

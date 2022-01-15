@@ -37,6 +37,12 @@ ExprPtr Parser::postfix_expression() {
 
 ExprPtr Parser::unary_expression() {
     // TODO complete this
+    if (inner.consume_if(PunctuatorKind::And)) {
+        return std::make_unique<UnOpExpr>(inner.loc(), UnOpKind::AddressOf, cast_expression());
+    }
+    if (inner.consume_if(PunctuatorKind::Star)) {
+        return std::make_unique<UnOpExpr>(inner.loc(), UnOpKind::Dereference, cast_expression());
+    }
     if (inner.consume_if(PunctuatorKind::Plus)) {
         return std::make_unique<UnOpExpr>(inner.loc(), UnOpKind::Posate, cast_expression());
     }
