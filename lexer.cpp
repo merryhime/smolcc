@@ -38,7 +38,11 @@ Token TokenStream::tok() {
             do {
                 value += *inner.get();
             } while (isdecimaldigit(inner.peek()));
-            return Token::IntegerConstant(inner.loc(), static_cast<uintmax_t>(std::atoll(value.c_str())));
+
+            char* strend = value.data() + value.size();
+            uintmax_t valnum = std::strtoull(value.data(), &strend, 10);
+            ASSERT(errno != ERANGE);
+            return Token::IntegerConstant(inner.loc(), valnum);
         }
         case '_':
         case 'a' ... 'z':
