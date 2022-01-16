@@ -22,34 +22,29 @@ static int iota() {
 }
 
 struct Function {
-    StmtPtr body;
+    StmtVal body;
     std::map<std::string, int> locals;
     int stack_size;
 };
 
 Function f{};
 
-template<typename T, typename U>
-T* dyn(const U& e) {
-    return dynamic_cast<T*>(e.get());
-}
-
 template<typename T>
 void emit_loc(const T& x) {
     fmt::print(".loc {} {} {}\n", x->loc.file, x->loc.line, x->loc.col);
 }
 
-void emit_addr(const ExprPtr& expr);
-void emit_expr(const ExprPtr& expr);
-void emit_stmt(const StmtPtr& expr);
+void emit_addr(const ExprVal& expr);
+void emit_expr(const ExprVal& expr);
+void emit_stmt(const StmtVal& stmt);
 
-void emit_addr(const ExprPtr& expr) {
-    if (auto e = dyn<VariableExpr>(expr)) {
+void emit_addr(const ExprVal& expr) {
+    if (auto e = expr.cast<VariableExpr>()) {
         fmt::print("add x0, fp, {}\n", f.locals[e->ident]);
         return;
     }
 
-    if (auto e = dyn<UnOpExpr>(expr)) {
+    if (auto e = expr.cast<UnOpExpr>()) {
         switch (e->op) {
         case UnOpKind::Dereference:
             emit_expr(e->e);
@@ -62,8 +57,8 @@ void emit_addr(const ExprPtr& expr) {
     ASSERT(!"!lvalue");
 }
 
-void emit_expr(const ExprPtr& expr) {
-    if (auto e = dyn<IntegerConstantExpr>(expr)) {
+void emit_expr(const ExprVal& expr) {
+    if (auto e = expr.cast<IntegerConstantExpr>()) {
         emit_loc(expr);
         fmt::print("movz x0, {}\n", e->value & 0xFFFF);
         if ((e->value >> 16) & 0xFFFF)
@@ -75,12 +70,12 @@ void emit_expr(const ExprPtr& expr) {
         return;
     }
 
-    if (auto e = dyn<VariableExpr>(expr)) {
+    if (auto e = expr.cast<VariableExpr>()) {
         fmt::print("ldr x0, [fp, {}]\n", f.locals[e->ident]);
         return;
     }
 
-    if (auto e = dyn<UnOpExpr>(expr)) {
+    if (auto e = expr.cast<UnOpExpr>()) {
         if (e->op == UnOpKind::AddressOf) {
             emit_addr(e->e);
             return;
@@ -104,7 +99,7 @@ void emit_expr(const ExprPtr& expr) {
         }
     }
 
-    if (auto e = dyn<BinOpExpr>(expr)) {
+    if (auto e = expr.cast<BinOpExpr>()) {
         emit_expr(e->lhs);
         fmt::print("str x0, [sp, -16]!\n");
         emit_expr(e->rhs);
@@ -166,7 +161,7 @@ void emit_expr(const ExprPtr& expr) {
         }
     }
 
-    if (auto e = dyn<AssignExpr>(expr)) {
+    if (auto e = expr.cast<AssignExpr>()) {
         emit_addr(e->lhs);
         fmt::print("str x0, [sp, -16]!\n");
         emit_expr(e->rhs);
@@ -178,21 +173,21 @@ void emit_expr(const ExprPtr& expr) {
     ASSERT(!"Unknown expr kind");
 }
 
-void emit_stmt(const StmtPtr& stmt) {
-    if (auto s = dyn<CompoundStmt>(stmt)) {
+void emit_stmt(const StmtVal& stmt) {
+    if (auto s = stmt.cast<CompoundStmt>()) {
         for (auto& i : s->items) {
             emit_stmt(i);
         }
         return;
     }
 
-    if (auto s = dyn<ExprStmt>(stmt)) {
+    if (auto s = stmt.cast<ExprStmt>()) {
         if (s->e)
             emit_expr(s->e);
         return;
     }
 
-    if (auto s = dyn<IfStmt>(stmt)) {
+    if (auto s = stmt.cast<IfStmt>()) {
         const int i = iota();
         emit_expr(s->cond);
         fmt::print("cmp x0, 0\n");
@@ -206,7 +201,7 @@ void emit_stmt(const StmtPtr& stmt) {
         return;
     }
 
-    if (auto s = dyn<LoopStmt>(stmt)) {
+    if (auto s = stmt.cast<LoopStmt>()) {
         const int i = iota();
         if (s->init) {
             emit_expr(s->init);
@@ -225,7 +220,7 @@ void emit_stmt(const StmtPtr& stmt) {
         return;
     }
 
-    if (auto s = dyn<ReturnStmt>(stmt)) {
+    if (auto s = stmt.cast<ReturnStmt>()) {
         if (s->e)
             emit_expr(s->e);
 
@@ -234,7 +229,7 @@ void emit_stmt(const StmtPtr& stmt) {
         return;
     }
 
-    if (auto s = dyn<DeclStmt>(stmt)) {
+    if (auto s = stmt.cast<DeclStmt>()) {
         // TODO: no duplicates
         f.locals[s->ident] = f.stack_size;
         f.stack_size += 8;
@@ -258,8 +253,8 @@ int main(int argc, char* argv[]) {
     fmt::print("mov fp, sp\n");
     fmt::print("sub sp, sp, 256\n");
 
-    StmtPtr s = p.statement();
-    emit_stmt(std::move(s));
+    StmtVal s = p.statement();
+    emit_stmt(s);
 
     fmt::print("add sp, sp, 256\n");
     fmt::print("ret\n");

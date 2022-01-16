@@ -8,6 +8,8 @@
 #include <vector>
 
 #include "lexer.h"
+#include "poly_value.h"
+#include "types.h"
 
 struct Expr {
     explicit Expr(Location loc)
@@ -15,9 +17,10 @@ struct Expr {
     virtual ~Expr() {}
 
     Location loc;
+    // TypePtr type;
 };
 
-using ExprPtr = std::unique_ptr<Expr>;
+using ExprVal = poly_value<Expr>;
 
 struct IntegerConstantExpr : public Expr {
     IntegerConstantExpr(Location loc, uintmax_t value)
@@ -39,11 +42,11 @@ enum class UnOpKind {
 };
 
 struct UnOpExpr : public Expr {
-    UnOpExpr(Location loc, UnOpKind op, ExprPtr e)
+    UnOpExpr(Location loc, UnOpKind op, ExprVal e)
             : op(op), e(std::move(e)), Expr(loc) {}
 
     UnOpKind op;
-    ExprPtr e;
+    ExprVal e;
 };
 
 enum class BinOpKind {
@@ -68,20 +71,20 @@ enum class BinOpKind {
 };
 
 struct BinOpExpr : public Expr {
-    BinOpExpr(Location loc, BinOpKind op, ExprPtr lhs, ExprPtr rhs)
+    BinOpExpr(Location loc, BinOpKind op, ExprVal lhs, ExprVal rhs)
             : op(op), lhs(std::move(lhs)), rhs(std::move(rhs)), Expr(loc) {}
 
     BinOpKind op;
-    ExprPtr lhs;
-    ExprPtr rhs;
+    ExprVal lhs;
+    ExprVal rhs;
 };
 
 struct AssignExpr : public Expr {
-    AssignExpr(Location loc, ExprPtr lhs, ExprPtr rhs)
+    AssignExpr(Location loc, ExprVal lhs, ExprVal rhs)
             : lhs(std::move(lhs)), rhs(std::move(rhs)), Expr(loc) {}
 
-    ExprPtr lhs;
-    ExprPtr rhs;
+    ExprVal lhs;
+    ExprVal rhs;
 };
 
 struct Stmt {
@@ -92,45 +95,45 @@ struct Stmt {
     Location loc;
 };
 
-using StmtPtr = std::unique_ptr<Stmt>;
+using StmtVal = poly_value<Stmt>;
 
 struct CompoundStmt : public Stmt {
     // TODO: block-item should be variant<Stmt, Decl>
-    CompoundStmt(Location loc, std::vector<StmtPtr> items)
+    CompoundStmt(Location loc, std::vector<StmtVal> items)
             : items(std::move(items)), Stmt(loc) {}
 
-    std::vector<StmtPtr> items;
+    std::vector<StmtVal> items;
 };
 
 struct ExprStmt : public Stmt {
-    ExprStmt(Location loc, ExprPtr e)
+    ExprStmt(Location loc, ExprVal e)
             : e(std::move(e)), Stmt(loc) {}
 
-    ExprPtr e;
+    ExprVal e;
 };
 
 struct IfStmt : public Stmt {
-    IfStmt(Location loc, ExprPtr cond, StmtPtr then_, StmtPtr else_)
+    IfStmt(Location loc, ExprVal cond, StmtVal then_, StmtVal else_)
             : cond(std::move(cond)), then_(std::move(then_)), else_(std::move(else_)), Stmt(loc) {}
 
-    ExprPtr cond;
-    StmtPtr then_;
-    StmtPtr else_;
+    ExprVal cond;
+    StmtVal then_;
+    StmtVal else_;
 };
 
 struct LoopStmt : public Stmt {
-    LoopStmt(Location loc, ExprPtr init, ExprPtr cond, ExprPtr incr, StmtPtr then)
+    LoopStmt(Location loc, ExprVal init, ExprVal cond, ExprVal incr, StmtVal then)
             : init(std::move(init)), cond(std::move(cond)), incr(std::move(incr)), then(std::move(then)), Stmt(loc) {}
 
-    ExprPtr init, cond, incr;
-    StmtPtr then;
+    ExprVal init, cond, incr;
+    StmtVal then;
 };
 
 struct ReturnStmt : public Stmt {
-    ReturnStmt(Location loc, ExprPtr e)
+    ReturnStmt(Location loc, ExprVal e)
             : e(std::move(e)), Stmt(loc) {}
 
-    ExprPtr e;
+    ExprVal e;
 };
 
 // TODO: Temporary
@@ -146,33 +149,33 @@ public:
     Parser(TokenStream inner)
             : inner(std::move(inner)) {}
 
-    ExprPtr primary_expression();
-    ExprPtr postfix_expression();
-    ExprPtr unary_expression();
-    ExprPtr cast_expression();
-    ExprPtr multiplicative_expression();
-    ExprPtr additive_expression();
-    ExprPtr shift_expression();
-    ExprPtr relational_expression();
-    ExprPtr equality_expression();
-    ExprPtr and_expression();
-    ExprPtr exclusive_or_expression();
-    ExprPtr inclusive_or_expression();
-    ExprPtr logical_and_expression();
-    ExprPtr logical_or_expression();
-    ExprPtr conditional_expression();
-    ExprPtr assignment_expression();
-    ExprPtr expression();
+    ExprVal primary_expression();
+    ExprVal postfix_expression();
+    ExprVal unary_expression();
+    ExprVal cast_expression();
+    ExprVal multiplicative_expression();
+    ExprVal additive_expression();
+    ExprVal shift_expression();
+    ExprVal relational_expression();
+    ExprVal equality_expression();
+    ExprVal and_expression();
+    ExprVal exclusive_or_expression();
+    ExprVal inclusive_or_expression();
+    ExprVal logical_and_expression();
+    ExprVal logical_or_expression();
+    ExprVal conditional_expression();
+    ExprVal assignment_expression();
+    ExprVal expression();
 
-    StmtPtr compound_statement();
-    StmtPtr expression_statement();
-    StmtPtr if_statement();
-    StmtPtr while_statement();
-    StmtPtr for_statement();
-    StmtPtr return_statement();
-    StmtPtr statement();
+    StmtVal compound_statement();
+    StmtVal expression_statement();
+    StmtVal if_statement();
+    StmtVal while_statement();
+    StmtVal for_statement();
+    StmtVal return_statement();
+    StmtVal statement();
 
-    StmtPtr declaration();
+    StmtVal declaration();
 
 private:
     TokenStream inner;
