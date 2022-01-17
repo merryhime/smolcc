@@ -17,21 +17,30 @@ struct Expr {
     virtual ~Expr() {}
 
     Location loc;
-    // TypePtr type;
+    virtual TypeVal type() = 0;
 };
 
 using ExprVal = poly_value<Expr>;
+
+template<typename T, typename... Ts>
+inline ExprVal make_expr(Ts&&... ts) {
+    return make_poly_value<Expr, T>(std::forward<Ts>(ts)...);
+}
 
 struct IntegerConstantExpr : public Expr {
     IntegerConstantExpr(Location loc, uintmax_t value)
             : value(value), Expr(loc) {}
     uintmax_t value;
+
+    TypeVal type() override { return make_int_type(); }
 };
 
 struct VariableExpr : public Expr {
     VariableExpr(Location loc, std::string ident)
             : ident(ident), Expr(loc) {}
     std::string ident;
+
+    TypeVal type() override { return make_int_type(); }
 };
 
 enum class UnOpKind {
@@ -47,6 +56,19 @@ struct UnOpExpr : public Expr {
 
     UnOpKind op;
     ExprVal e;
+
+    TypeVal type() override {
+        TypeVal et = e->type();
+        switch (op) {
+        case UnOpKind::AddressOf:
+            return make_ptr_type(std::move(et));
+        case UnOpKind::Dereference:
+            return et->is_pointer() ? et.cast<PointerType>()->base : make_int_type();
+        case UnOpKind::Posate:
+        case UnOpKind::Negate:
+            return et;
+        }
+    }
 };
 
 enum class BinOpKind {
@@ -77,6 +99,43 @@ struct BinOpExpr : public Expr {
     BinOpKind op;
     ExprVal lhs;
     ExprVal rhs;
+
+    TypeVal type() override {
+        const TypeVal lt = lhs->type();
+        const TypeVal rt = rhs->type();
+        switch (op) {
+        case BinOpKind::Add:
+            if (lt->is_pointer() && rt->is_pointer())
+                return make_invalid_type();
+            if (rt->is_pointer())
+                return rt;
+            return lt;
+        case BinOpKind::Subtract:
+            if (lt->is_pointer() && rt->is_pointer())
+                return make_int_type();
+            if (rt->is_pointer())
+                return make_invalid_type();
+            return lt;
+        case BinOpKind::Multiply:
+        case BinOpKind::Divide:
+        case BinOpKind::Modulo:
+        case BinOpKind::LShift:
+        case BinOpKind::RShift:
+        case BinOpKind::BitAnd:
+        case BinOpKind::BitXor:
+        case BinOpKind::BitOr:
+            return lt;
+        case BinOpKind::LessThan:
+        case BinOpKind::GreaterThan:
+        case BinOpKind::LessThanEqual:
+        case BinOpKind::GreaterThanEqual:
+        case BinOpKind::Equal:
+        case BinOpKind::NotEqual:
+        case BinOpKind::LogicalAnd:
+        case BinOpKind::LogicalOr:
+            return make_int_type();
+        }
+    }
 };
 
 struct AssignExpr : public Expr {
@@ -85,6 +144,8 @@ struct AssignExpr : public Expr {
 
     ExprVal lhs;
     ExprVal rhs;
+
+    TypeVal type() override { return lhs->type(); }
 };
 
 struct Stmt {
@@ -96,6 +157,11 @@ struct Stmt {
 };
 
 using StmtVal = poly_value<Stmt>;
+
+template<typename T, typename... Ts>
+inline StmtVal make_stmt(Ts&&... ts) {
+    return make_poly_value<Stmt, T>(std::forward<Ts>(ts)...);
+}
 
 struct CompoundStmt : public Stmt {
     // TODO: block-item should be variant<Stmt, Decl>

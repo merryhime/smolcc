@@ -8,16 +8,6 @@
 #include "assert.h"
 #include "poly_value.h"
 
-template<typename T, typename... Ts>
-static ExprVal make_expr(Ts&&... ts) {
-    return make_poly_value<Expr, T>(std::forward<Ts>(ts)...);
-}
-
-template<typename T, typename... Ts>
-static StmtVal make_stmt(Ts&&... ts) {
-    return make_poly_value<Stmt, T>(std::forward<Ts>(ts)...);
-}
-
 ExprVal Parser::primary_expression() {
     if (inner.consume_if(PunctuatorKind::LParen)) {
         ExprVal result = expression();

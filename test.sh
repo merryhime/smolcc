@@ -18,3 +18,11 @@ echo expect 69
 ./build.sh "{ for (0; 1; 0) { return 69; } return 42; }"
 echo expect 69
 ./build.sh "{ while (1) { return 69; } }"
+echo expect 42
+./build.sh "{ int x; int y; *(&x+0) = 42; x; }"
+echo expect 0
+./build.sh "{ int x; int y; *(&x+0) = 42; y; }"
+echo expect 0
+./build.sh "{ int x; int y; *(&x+1) = 42; x; }"
+echo expect 42
+./build.sh "{ int x; int y; *(&x+1) = 42; y; }"

@@ -38,6 +38,16 @@ void emit_addr(const ExprVal& expr);
 void emit_expr(const ExprVal& expr);
 void emit_stmt(const StmtVal& stmt);
 
+void emit_constant(std::string_view reg, std::uint64_t value) {
+    fmt::print("movz {}, {}\n", reg, value & 0xFFFF);
+    if ((value >> 16) & 0xFFFF)
+        fmt::print("movk {}, {}, lsl 16\n", reg, (value >> 16) & 0xFFFF);
+    if ((value >> 32) & 0xFFFF)
+        fmt::print("movk {}, {}, lsl 32\n", reg, (value >> 32) & 0xFFFF);
+    if ((value >> 48) & 0xFFFF)
+        fmt::print("movk {}, {}, lsl 48\n", reg, (value >> 48) & 0xFFFF);
+}
+
 void emit_addr(const ExprVal& expr) {
     if (auto e = expr.cast<VariableExpr>()) {
         fmt::print("add x0, fp, {}\n", f.locals[e->ident]);
@@ -57,16 +67,41 @@ void emit_addr(const ExprVal& expr) {
     ASSERT(!"!lvalue");
 }
 
+void emit_addsub(BinOpExpr* e) {
+    const bool is_add = e->op == BinOpKind::Add;
+    const TypeVal lt = e->lhs->type();
+    const TypeVal rt = e->rhs->type();
+    const bool lp = lt->is_pointer();
+    const bool rp = rt->is_pointer();
+
+    if (lp && rp) {
+        ASSERT(!is_add && "pointer + pointer is invalid");
+        emit_constant("x2", lt.cast<PointerType>()->base->size());
+        fmt::print("sub x0, x1, x0\n");
+        fmt::print("udiv x0, x0, x2\n");
+        return;
+    } else if (lp && !rp) {
+        emit_constant("x2", lt.cast<PointerType>()->base->size());
+        fmt::print("{} x0, x0, x2, x1\n", is_add ? "madd" : "msub");  // x0 = x1 + x0 * x2
+        return;
+    } else if (!lp && rp) {
+        ASSERT(is_add && "integer - pointer is invalid");
+        emit_constant("x2", rt.cast<PointerType>()->base->size());
+        fmt::print("madd x0, x1, x2, x0\n");  // x0 = x0 + x1 * x2
+        return;
+    }
+
+    if (is_add) {
+        fmt::print("add x0, x1, x0\n");
+    } else {
+        fmt::print("sub x0, x1, x0\n");
+    }
+}
+
 void emit_expr(const ExprVal& expr) {
     if (auto e = expr.cast<IntegerConstantExpr>()) {
         emit_loc(expr);
-        fmt::print("movz x0, {}\n", e->value & 0xFFFF);
-        if ((e->value >> 16) & 0xFFFF)
-            fmt::print("movk x0, {}, lsl 16\n", (e->value >> 16) & 0xFFFF);
-        if ((e->value >> 32) & 0xFFFF)
-            fmt::print("movk x0, {}, lsl 32\n", (e->value >> 32) & 0xFFFF);
-        if ((e->value >> 48) & 0xFFFF)
-            fmt::print("movk x0, {}, lsl 48\n", (e->value >> 48) & 0xFFFF);
+        emit_constant("x0", e->value);
         return;
     }
 
@@ -108,10 +143,8 @@ void emit_expr(const ExprVal& expr) {
         emit_loc(expr);
         switch (e->op) {
         case BinOpKind::Add:
-            fmt::print("add x0, x1, x0\n");
-            return;
         case BinOpKind::Subtract:
-            fmt::print("sub x0, x1, x0\n");
+            emit_addsub(e);
             return;
         case BinOpKind::Multiply:
             fmt::print("mul x0, x1, x0\n");
